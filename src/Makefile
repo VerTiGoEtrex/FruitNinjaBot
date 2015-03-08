@@ -1,0 +1,17 @@
+CXXFLAGS := -Wall -Werror -g -std=c++11
+LDFLAGS := `pkg-config --cflags --libs opencv`
+
+BIN = bot
+THREADLIB =
+
+all: $(BIN)
+
+bot: bot.o
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $<
+
+clean:
+	rm -f *~ *.out *.o $(BIN)
