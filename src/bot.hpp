@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 
 extern "C" {
+#include <libswscale/swscale.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>

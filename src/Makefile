@@ -1,5 +1,5 @@
 CXXFLAGS := -Wall -Werror -g -std=c++11
-LDFLAGS := `pkg-config --cflags --libs opencv libavcodec`
+LDFLAGS := `pkg-config --cflags --libs libswscale opencv libavcodec`
 
 BIN = bot
 THREADLIB =
