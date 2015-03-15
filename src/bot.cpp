@@ -2,44 +2,68 @@
 
 using cv::Mat;
 using cv::waitKey;
+using std::cerr;
+using std::cout;
 
-void imageFromDisplay(std::vector<uint8_t>& pixels, int& width, int& height, int& bitsPerPixel) {
-    Display* display = XOpenDisplay(nullptr);
-    Window root = DefaultRootWindow(display);
-
-    XWindowAttributes attributes = {0};
-    XGetWindowAttributes(display, root, &attributes);
-
-    width = attributes.width;
-    height = attributes.height;
-
-    XImage* img = XGetImage(display, root, 0, 0 , width, height, AllPlanes, ZPixmap);
-    bitsPerPixel = img->bits_per_pixel;
-    pixels.resize(width * height * 4);
-
-    std::copy_n(img->data, pixels.size(), pixels.begin());
-
-    XFree(img);
-    XCloseDisplay(display);
+void exitError(const char* err) {
+  perror(err);
+  exit(EXIT_FAILURE);
 }
 
-int main()
+void readFromPipe(int fd) {
+  FILE *stream;
+  int ch;
+  cerr << "reading\n";
+  stream = fdopen(fd, "r");
+  if (stream == NULL)
+    exitError("fdopen() r");
+  while ( (ch = getc(stream)) != EOF)
+    cout << (char) ch;
+  fflush(stdout);
+  fclose(stream);
+  cerr << "reading done\n";
+}
+
+int main(int argc, char *argv[])
 {
-    int width = 0;
-    int height = 0;
-    int bpp = 0;
-    std::vector<std::uint8_t> pixels;
+  // Boot screenrecord on Android and pipe stream into our program
+  int pipeTo[2];
+  int pipeFrom[2];
+  if (pipe(pipeTo) != 0)
+    exitError("pipe() from");
+  if (pipe(pipeFrom) != 0)
+    exitError("pipe() from");
 
-    imageFromDisplay(pixels, width, height, bpp);
+  pid_t screenPid = fork();
+  bool forkError = screenPid < 0;
+  bool isChild = screenPid == 0;
+  if (forkError) {
+    exitError("fork() screenrecord");
 
-    if (width && height)
-    {
-        Mat img = Mat(height, width, bpp > 24 ? CV_8UC4 : CV_8UC3, &pixels[0]); //Mat(Size(Height, Width), Bpp > 24 ? CV_8UC4 : CV_8UC3, &Pixels[0]);
+  } else if (isChild) {
+    // Setup pipe to stdin and from stdout
+    dup2(pipeTo[0], STDIN_FILENO);
+    dup2(pipeFrom[1], STDOUT_FILENO);
 
-        //namedWindow("WindowTitle", cv::WINDOW_AUTOSIZE);
-        imshow("Display window", img);
+    // Close unneeded FDs (we already duplicated them into stdin and out
+    close(pipeTo[0]);
+    close(pipeTo[1]);
+    close(pipeFrom[0]);
+    close(pipeFrom[1]);
 
-        waitKey(0);
-    }
-    return 0;
+    // Start screenrecord
+    execlp("adb", "adb", "shell", "screenrecord", "--size", "640x360", "--o", "h264", "--bugreport", "-", NULL);
+    exitError("execlp");
+
+  } else { // parent
+    // Close unneeded FDs (We won't send any more commands to this ADB shell)
+    close (pipeTo[0]);
+    close (pipeTo[1]);
+    close (pipeFrom[1]);
+
+    // Pipe ADB to the shell (to view with mplayer)
+    readFromPipe(pipeFrom[0]);
+  }
+
+  return 0;
 }
