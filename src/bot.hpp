@@ -4,3 +4,8 @@
 #include <algorithm>
 #include <opencv2/opencv.hpp>
 #include <iostream>
+#include <functional>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <thread>
