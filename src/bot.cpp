@@ -99,27 +99,8 @@ void bootSubprocess(int &pipeFromProc, int &pipeToProc, int childRedirectOut, in
   }
 }
 
-void bootOpenCV(const char* pipePath) {
-  cout << "OpenCV creating capture object\n";
-  VideoCapture cap;
-  cap.set(CV_CAP_PROP_FOURCC, CV_FOURCC('H', '2', '6', '4'));
-  sleep(5);
-  cout << "OpenCV opening pipe\n";
-  cap.open(pipePath);
-  cout << "OpenCV opened named pipe\n";
-  if (!cap.isOpened())
-    exitError("OpenCV couldn't open pipe properly");
-  cout << "OpenCV is running!\n";
-
-  /* ***** OPEN CV MAIN LOOP ***** */
-  while (true) {
-    Mat frame;
-    cout << "GETTING FRAME\n";
-    cap >> frame;
-    cout << "GOT FRAME\n";
-    imshow("display", frame);
-    if(waitKey(30 >= 0)) break;
-  }
+void callback(AVFrame *frame, AVPacket *pkt, void *user) {
+  cout << "Got frame!\n";
 }
 
 int main(int argc, char *argv[]) {
@@ -142,39 +123,22 @@ int main(int argc, char *argv[]) {
   writeSwipeEvent(adbStream, 100, 100, 450, 450, 500);
 
   /* ***** SCREENRECORD AND OPENCV INIT ***** */
-
-  // Setup the named pipe to record to
-  const char* cvFifoPath = "/tmp/cvFIFO";
-  cout << "Making named pipe" << endl;
-  if (mkfifo(cvFifoPath, 0666))
-    exitError("mkfifo()");
-
-  // Open the named pipe for reading by OpenCV
-  cout << "Created named pipe, running openCV\n";
-  thread openCV(bootOpenCV, cvFifoPath);
-
-  // Open the named pipe for writing by screenrecord
-  cout << "Opening named pipe" << endl;
-  int fifoFD = open(cvFifoPath, O_WRONLY);
-  cout << "Opened named pipe" << endl;
-
-  // Record to the named pipe
   int screenPipes[2];
   auto screenArgs = vector<string>({"adb", "shell", "screenrecord", "--size", "640x360", "--o", "h264", "--bugreport", "-"});
-  bootSubprocess(screenPipes[0], screenPipes[1], fifoFD, devNull, screenArgs);
-  close(screenPipes[0]);
+  bootSubprocess(screenPipes[0], screenPipes[1], -1, devNull, screenArgs);
   close(screenPipes[1]); // We never write anything
 
-  openCV.join();
-
+  H264_Decoder dec(callback, NULL);
+  if (!dec.load(screenPipes[0]))
+    exitError("H264 Decoder couldn't load FD");
+  while (true)
+    dec.readFrame();
 
   /* ***** CLEANUP ADB SHELL ***** */
   fclose(adbStream);
 
   /* ***** CLEANUP SCREENRECORD ***** */
   // TODO
-  close(fifoFD);
-  unlink(cvFifoPath);
 
   return EXIT_SUCCESS;
 }

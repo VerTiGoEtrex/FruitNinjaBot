@@ -1,11 +1,15 @@
 #include <cstdint>
-#include <unistd.h>
 #include <vector>
 #include <algorithm>
-#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <functional>
+#include <thread>
+#include "H264_Decoder.h"
+#include <opencv2/opencv.hpp>
+
+extern "C" {
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <thread>
+}
