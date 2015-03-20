@@ -99,11 +99,14 @@ void bootSubprocess(int &pipeFromProc, int &pipeToProc, int childRedirectOut, in
   }
 }
 
+cv::BackgroundSubtractorMOG2 bgs = cv::BackgroundSubtractorMOG2();
 void callback(AVFrame *frame, AVPacket *pkt, void *user) {
   cout << "Got frame!\n";
   AVFrame dst;
-  cv::Mat m;
 
+  cv::Mat mask;
+  cv::Mat m;
+  cv::Mat fore;
   memset(&dst, 0, sizeof(dst));
 
   int w = frame->width, h = frame->height;
@@ -120,7 +123,18 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
       dst.data, dst.linesize);
   sws_freeContext(convert_ctx);
 
-  imshow("riot pls", m);
+  //imshow("riot pls", m);
+  bgs(m, mask);
+  if (mask.rows){
+    cv::Mat maskCmp(h, w, CV_8UC1, 128);
+    cv::compare(mask, maskCmp, mask, cv::CMP_GT);
+    maskCmp /= 256;
+    cv::merge({mask, mask, mask}, mask);
+    m.copyTo(fore, mask);
+    cout << mask.channels() << endl;
+    imshow("riot pls", fore);
+  }
+
   waitKey(1);
 }
 
@@ -142,17 +156,18 @@ int main(int argc, char *argv[]) {
     exitError("fdopen() r");
 
   // FIXME demo event
-  writeSwipeEvent(adbStream, 100, 100, 450, 450, 500);
+  writeSwipeEvent(adbStream, 100, 100, 450, 450, 100);
 
   /* ***** SCREENRECORD AND OPENCV INIT ***** */
   int screenPipes[2];
-  auto screenArgs = vector<string>({"adb", "shell", "screenrecord", "--size", "640x360", "--o", "h264", "--bugreport", "-"});
+  auto screenArgs = vector<string>({"adb", "shell", "screenrecord", "--size", "640x360", "--o", "h264", "-"});
   bootSubprocess(screenPipes[0], screenPipes[1], -1, devNull, screenArgs);
   close(screenPipes[1]); // We never write anything
 
   H264_Decoder dec(callback, NULL);
   if (!dec.load(screenPipes[0]))
     exitError("H264 Decoder couldn't load FD");
+
   while (true)
     dec.readFrame();
 
