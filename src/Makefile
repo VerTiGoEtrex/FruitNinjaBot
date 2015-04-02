@@ -1,4 +1,4 @@
-CXXFLAGS := -Wall -Werror -g -std=c++11
+CXXFLAGS := -Wall -g -std=c++11
 LDFLAGS := `pkg-config --cflags --libs libswscale opencv libavcodec`
 
 BIN = bot

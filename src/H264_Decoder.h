@@ -27,6 +27,10 @@
 #include <string>
 #include <vector>
 
+#if defined(__APPLE__)
+#include <mach/mach_time.h>
+#endif
+
 extern "C" {
 #include <libavutil/avutil.h>
 #include <libavcodec/avcodec.h>
