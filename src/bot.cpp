@@ -131,7 +131,6 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     maskCmp /= 256;
     cv::merge({mask, mask, mask}, mask);
     m.copyTo(fore, mask);
-    cout << mask.channels() << endl;
     imshow("riot pls", fore);
   }
 
