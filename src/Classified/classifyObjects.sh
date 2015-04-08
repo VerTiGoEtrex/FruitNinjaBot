@@ -11,7 +11,8 @@ do
   wmctrl -a $NAME
   echo "------------------"
   echo "Please classify"
-  echo "(A)pple"
+  echo "(R)ed apple"
+  echo "(G)reen apple"
   echo "(B)anana"
   echo "(C)oconut"
   echo "(L)emon"
@@ -25,8 +26,11 @@ do
   echo "Input:"
   read class
   case $class in
-    [a])
-      mv $f ./Classified/Apple/
+    [r])
+      mv $f ./Classified/RedApple/
+      ;;
+    [g])
+      mv $f ./Classified/GreenApple/
       ;;
     [b])
       mv $f ./Classified/Banana/
