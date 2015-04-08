@@ -1,0 +1,2 @@
+find ./Classified/Pineapple -iname "*.jpg" | xargs -I{} sh -c "identify {} | awk '{print \$1, 1, 0, 0, \$3}' | sed -s 's/x/ /g'" > PineapplePositives.txt
+
