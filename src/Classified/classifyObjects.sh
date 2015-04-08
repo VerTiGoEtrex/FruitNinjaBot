@@ -24,7 +24,7 @@ do
   echo "(U)nivNegatives"
   echo "(M)aybeNegatives"
   echo "Input:"
-  read class
+  read -n 1 class
   case $class in
     [r])
       mv $f ./Classified/RedApple/
