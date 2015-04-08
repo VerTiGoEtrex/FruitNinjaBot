@@ -18,6 +18,7 @@ do
   echo "(L)emon"
   echo "(O)range"
   echo "(P)ear"
+  echo "P(e)ach"
   echo "(S)trawberry"
   echo "(W)atermelon"
 
@@ -46,6 +47,9 @@ do
       ;;
     [p])
       mv $f ./Classified/Pear/
+      ;;
+    [e])
+      mv $f ./Classified/Peach/
       ;;
     [s])
       mv $f ./Classified/Strawberry/
