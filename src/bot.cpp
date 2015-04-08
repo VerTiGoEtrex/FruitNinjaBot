@@ -10,6 +10,9 @@ using std::function;
 using std::vector;
 using std::string;
 using std::thread;
+using std::for_each;
+
+static const int CONTOURAREA = 150;
 
 void exitError(const char* err) {
   perror(err);
@@ -99,8 +102,14 @@ void bootSubprocess(int &pipeFromProc, int &pipeToProc, int childRedirectOut, in
   }
 }
 
+std::string sampleName = "samples/sample";
+std::string sampleExtension = ".png";
+unsigned int uniq = 0;
+
+int iterCount = 0;
 cv::BackgroundSubtractorMOG2 bgs = cv::BackgroundSubtractorMOG2();
 void callback(AVFrame *frame, AVPacket *pkt, void *user) {
+  FILE* adbStream = (FILE*)user;
   cout << "Got frame!\n";
   AVFrame dst;
 
@@ -123,22 +132,52 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
       dst.data, dst.linesize);
   sws_freeContext(convert_ctx);
 
-  //imshow("riot pls", m);
   bgs(m, mask);
   if (mask.rows){
     cv::Mat maskCmp(h, w, CV_8UC1, 128);
     cv::compare(mask, maskCmp, mask, cv::CMP_GT);
     maskCmp /= 256;
-    cv::merge({mask, mask, mask}, mask);
-    m.copyTo(fore, mask);
-    imshow("riot pls", fore);
+    cv::Mat maskCopy;
+    cv::merge({mask, mask, mask}, maskCopy);
+    m.copyTo(fore, maskCopy);
+    imshow("BGMOG", fore);
   }
 
+  // Find objects
+  cv::Mat processedFore;
+  fore.copyTo(processedFore);
+  vector<vector<cv::Point>> contourPoints;
+  cv::findContours(mask, contourPoints, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+  for (size_t i = 0; i < contourPoints.size(); ++i) {
+    if (contourPoints[i].size() < CONTOURAREA)
+      continue;
+    cv::drawContours(processedFore, contourPoints, i, cv::Scalar(255, 0, 255), 1, 8);
+
+    cv::Rect rect = boundingRect(contourPoints[i]);
+    cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
+    if (iterCount % 30 == 0) {
+      cout << "Writing images!" << endl;
+      cv::Mat sample = fore(rect);
+      cv::imwrite(sampleName + std::to_string(uniq++) + sampleExtension, sample);
+    }
+
+    // Try swiping at them, I guess
+    if (iterCount % 30 == 0) {
+      writeSwipeEvent(adbStream,
+          rect.tl().x * ((float)1920/640),
+          rect.tl().y * ((float)1080/320),
+          rect.br().x * ((float)1920/640),
+          rect.br().y * ((float)1080/320),
+          100);
+    }
+  }
+  imshow("PROCESSED", processedFore);
+
   waitKey(1);
+  ++iterCount;
 }
 
 int main(int argc, char *argv[]) {
-  namedWindow("riot pls", cv::WINDOW_AUTOSIZE);
   int devNull = open("/dev/null", O_WRONLY);
   if (devNull == -1)
     exitError("open() /dev/null");
@@ -163,7 +202,7 @@ int main(int argc, char *argv[]) {
   bootSubprocess(screenPipes[0], screenPipes[1], -1, devNull, screenArgs);
   close(screenPipes[1]); // We never write anything
 
-  H264_Decoder dec(callback, NULL);
+  H264_Decoder dec(callback, adbStream);
   if (!dec.load(screenPipes[0]))
     exitError("H264 Decoder couldn't load FD");
 
