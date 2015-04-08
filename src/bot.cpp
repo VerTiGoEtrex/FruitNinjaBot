@@ -103,7 +103,7 @@ void bootSubprocess(int &pipeFromProc, int &pipeToProc, int childRedirectOut, in
 }
 
 std::string sampleName = "samples/sample";
-std::string sampleExtension = ".png";
+std::string sampleExtension = ".jpg";
 unsigned int uniq = 0;
 
 int iterCount = 0;
@@ -155,21 +155,21 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
 
     cv::Rect rect = boundingRect(contourPoints[i]);
     cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
-    if (iterCount % 30 == 0) {
+    if (iterCount % 5 == 0) {
       cout << "Writing images!" << endl;
       cv::Mat sample = fore(rect);
       cv::imwrite(sampleName + std::to_string(uniq++) + sampleExtension, sample);
     }
 
     // Try swiping at them, I guess
-    if (iterCount % 30 == 0) {
-      writeSwipeEvent(adbStream,
-          rect.tl().x * ((float)1920/640),
-          rect.tl().y * ((float)1080/320),
-          rect.br().x * ((float)1920/640),
-          rect.br().y * ((float)1080/320),
-          100);
-    }
+    //if (iterCount % 90 == 0) {
+      //writeSwipeEvent(adbStream,
+          //rect.tl().x * ((float)1920/640),
+          //rect.tl().y * ((float)1080/320),
+          //rect.br().x * ((float)1920/640),
+          //rect.br().y * ((float)1080/320),
+          //100);
+    //}
   }
   imshow("PROCESSED", processedFore);
 
