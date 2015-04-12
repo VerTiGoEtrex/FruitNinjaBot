@@ -12,19 +12,29 @@ using std::string;
 using std::thread;
 using std::for_each;
 
-static const int CONTOURAREA = 150;
+static const int CONTOURAREA = 175;
 
 void exitError(const char* err) {
   perror(err);
   exit(EXIT_FAILURE);
 }
 
-void writeSwipeEvent(FILE* adbStream, int x1, int y1, int x2, int y2, int msec) {
-  cerr << "writing swipe event" << endl;
-  fprintf(adbStream, "input swipe %d %d %d %d %d &\n", x1, y1, x2, y2, msec);
-  fflush(adbStream);
-  cerr << "writing swipe event done" << endl;
+int num = 0;
+
+void writeSwipeEvent(FILE* monkeyStream, int x1, int y1, int x2, int y2, float sec) {
+  cerr << "writing swipe event: " << num++ << endl;
+  fprintf(monkeyStream, "d.drag((%d, %d), (%d, %d), %f, 10)\n", x1, y1, x2, y2, sec);
+  fflush(monkeyStream);
 }
+
+/*
+ *void writeSwipeEvent(FILE* adbStream, int x1, int y1, int x2, int y2, int msec) {
+ *  cerr << "writing swipe event" << endl;
+ *  fprintf(adbStream, "input swipe %d %d %d %d %d &\n", x1, y1, x2, y2, msec);
+ *  fflush(adbStream);
+ *  cerr << "writing swipe event done" << endl;
+ *}
+ */
 
 void readFromPipe(int fd) {
   FILE *stream;
@@ -107,10 +117,13 @@ std::string sampleExtension = ".jpg";
 unsigned int uniq = 0;
 
 int iterCount = 0;
-cv::BackgroundSubtractorMOG2 bgs = cv::BackgroundSubtractorMOG2();
+cv::BackgroundSubtractorMOG2 bgs = cv::BackgroundSubtractorMOG2(300, 32);
+
+cv::CascadeClassifier bombClassifer = cv::CascadeClassifier("./bombClass.xml");
+
 void callback(AVFrame *frame, AVPacket *pkt, void *user) {
   FILE* adbStream = (FILE*)user;
-  cout << "Got frame!\n";
+  //cout << "Got frame!\n";
   AVFrame dst;
 
   cv::Mat mask;
@@ -149,29 +162,67 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
   vector<vector<cv::Point>> contourPoints;
   cv::findContours(mask, contourPoints, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
   for (size_t i = 0; i < contourPoints.size(); ++i) {
-    if (contourPoints[i].size() < CONTOURAREA)
+    if (cv::contourArea(contourPoints[i]) < CONTOURAREA)
       continue;
     cv::drawContours(processedFore, contourPoints, i, cv::Scalar(255, 0, 255), 1, 8);
 
     cv::Rect rect = boundingRect(contourPoints[i]);
     cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
     if (iterCount % 5 == 0) {
-      cout << "Writing images!" << endl;
-      cv::Mat sample = fore(rect);
+      //cout << "Writing images!" << endl;
+      cv::Mat sample = m(rect);
       cv::imwrite(sampleName + std::to_string(uniq++) + sampleExtension, sample);
     }
 
-    // Try swiping at them, I guess
-    //if (iterCount % 90 == 0) {
-      //writeSwipeEvent(adbStream,
-          //rect.tl().x * ((float)1920/640),
-          //rect.tl().y * ((float)1080/320),
-          //rect.br().x * ((float)1920/640),
-          //rect.br().y * ((float)1080/320),
-          //100);
-    //}
+    auto actualArea = cv::contourArea(contourPoints[i]);
+    int A = rect.width;
+    int B = rect.height;
+    double estimatedArea = M_PI * A * B;
+    if (estimatedArea < 1e-8)
+      continue;
+    double error = std::fabs(actualArea - estimatedArea);
+    double roundness = std::max(0.0, 1 - error/estimatedArea) * std::min(A, B) / std::max(A, B);
+    if (roundness > 0.17){
+      cout << roundness << "\n";
+      cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
+    }
+
+    //Try swiping at them, I guess
+    if (iterCount % 10 == 0) {
+      if (rect.tl().y > 75 && rect.br().y < 200 && roundness > 0.05) {
+        if (rect.width > 2 * rect.height){
+          writeSwipeEvent(adbStream,
+              rect.tl().x * ((float)1920/640) - 100,
+              rect.tl().y * ((float)1081/320),
+              rect.br().x * ((float)1920/640) + 100,
+              rect.br().y * ((float)1080/320),
+              0.05);
+        }else {
+          writeSwipeEvent(adbStream,
+              rect.tl().x * ((float)1920/640),
+              rect.tl().y * ((float)1080/320) - 100,
+              rect.br().x * ((float)1920/640),
+              rect.br().y * ((float)1080/320) + 100,
+              0.05);
+        }
+      }
+    }
   }
   imshow("PROCESSED", processedFore);
+
+  // Run classifiers
+/*
+ *  cv::Mat detectFore;
+ *  m.copyTo(detectFore);
+ *  vector<cv::Rect> bombs;
+ *  bombClassifer.detectMultiScale(m, bombs, 1.1, 2, cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30), cv::Size(100, 100));
+ *  cout << "Found " << bombs.size() << " bombs\n";
+ *
+ *  for (auto &b : bombs) {
+ *    cv::rectangle(m, b.tl(), b.br(), cv::Scalar(0, 255, 255), 1);
+ *  }
+ *  imshow("DETECTED", m);
+ */
 
   waitKey(1);
   ++iterCount;
@@ -182,27 +233,47 @@ int main(int argc, char *argv[]) {
   if (devNull == -1)
     exitError("open() /dev/null");
 
-  /* ***** ADB SHELL ***** */
-  int adbShellPipes[2];
-  auto adbShellArgs = vector<string>({"adb", "shell"});
-  bootSubprocess(adbShellPipes[0], adbShellPipes[1], devNull, -1, adbShellArgs);
-  close(adbShellPipes[0]);
+/*
+ *  [> ***** ADB SHELL ***** <]
+ *  int adbShellPipes[2];
+ *  auto adbShellArgs = vector<string>({"adb", "shell"});
+ *  bootSubprocess(adbShellPipes[0], adbShellPipes[1], devNull, -1, adbShellArgs);
+ *  close(adbShellPipes[0]);
+ *
+ *  // Open stream to send events
+ *  auto adbStream = fdopen(adbShellPipes[1], "w");
+ *  if (adbStream == NULL)
+ *    exitError("fdopen() r");
+ */
+
+  /* ***** MONKEYRUNNER INTERACTIVE SHELL ***** */
+  int monkeyPipes[2];
+  auto monkeyArgs = vector<string>({"/home/ncrocker/Android/Sdk/tools/monkeyrunner"});
+  bootSubprocess(monkeyPipes[0], monkeyPipes[1], devNull, -1, monkeyArgs);
+  close(monkeyPipes[0]);
 
   // Open stream to send events
-  auto adbStream = fdopen(adbShellPipes[1], "w");
-  if (adbStream == NULL)
+  auto monkeyStream = fdopen(monkeyPipes[1], "w");
+  if (monkeyStream == NULL)
     exitError("fdopen() r");
 
+  fprintf(monkeyStream, "from com.android.monkeyrunner import MonkeyRunner, MonkeyDevice\n");
+  fprintf(monkeyStream, "d = MonkeyRunner.waitForConnection()\n");
+  fflush(monkeyStream);
+  //sleep(3);
+
   // FIXME demo event
-  writeSwipeEvent(adbStream, 100, 100, 450, 450, 100);
+  //writeSwipeEvent(monkeyStream, 100, 100, 450, 450, 2);
+  //sleep(3);
 
   /* ***** SCREENRECORD AND OPENCV INIT ***** */
   int screenPipes[2];
   auto screenArgs = vector<string>({"adb", "shell", "screenrecord", "--size", "640x360", "--o", "h264", "-"});
-  bootSubprocess(screenPipes[0], screenPipes[1], -1, devNull, screenArgs);
+  bootSubprocess(screenPipes[0], screenPipes[1], -1, 0, screenArgs);
   close(screenPipes[1]); // We never write anything
 
-  H264_Decoder dec(callback, adbStream);
+  //H264_Decoder dec(callback, adbStream);
+  H264_Decoder dec(callback, monkeyStream);
   if (!dec.load(screenPipes[0]))
     exitError("H264 Decoder couldn't load FD");
 
@@ -210,7 +281,8 @@ int main(int argc, char *argv[]) {
     dec.readFrame();
 
   /* ***** CLEANUP ADB SHELL ***** */
-  fclose(adbStream);
+  //fclose(adbStream);
+  fclose(monkeyStream);
 
   /* ***** CLEANUP SCREENRECORD ***** */
   // TODO
