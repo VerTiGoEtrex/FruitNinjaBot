@@ -13,7 +13,7 @@ using std::string;
 using std::thread;
 using std::for_each;
 
-typedef Vec<int, 3> Vec3i;
+typedef Vec<unsigned char, 3> Vec3c;
 
 static const int CONTOURAREA = 175;
 
@@ -171,8 +171,8 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
 
     cv::Rect rect = boundingRect(contourPoints[i]);
     cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
-    
-    cv::Mat sample = m(rect);
+
+    cv::Mat sample = fore(rect);
     if (iterCount % 5 == 0)
       //cout << "Writing images!" << endl;
       cv::imwrite(sampleName + std::to_string(uniq++) + sampleExtension, sample);
@@ -195,26 +195,15 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
       if (rect.tl().y > 75 && rect.br().y < 200 && roundness > 0.05) {
         //Check for green pixels
         bool isGreen = false;
-        for(auto it = sample.begin<Vec3i>(); it != sample.end<Vec3i>(); ++it) {
-          if((*it)[0] >= 30 && (*it)[0] <= 90 &&
+        for(auto it = sample.begin<Vec3c>(); it != sample.end<Vec3c>(); ++it) {
+          if((*it)[2] >= 30 && (*it)[2] <= 90 &&
              (*it)[1] >= 100 && (*it)[1] <= 180 &&
-             (*it)[2] >= 0 && (*it)[2] <= 15) {
+             (*it)[0] >= 0 && (*it)[0] <= 15) {
             isGreen = true;
             break;
           }
         }
 
-        /*for(int x = 0; i < sample.rows; ++x) {
-            for(int y = 0; j < sample.cols; ++y) {
-              Vec3i color = image.at<Vec3i>(Point(x,y));
-              if(color[0] < 0 && color[0] > 0 &&
-                 color[0] < 0 && color[0] > 0 &&
-                 color[0] < 0 && color[0] > 0) {
-                isGreen = true;
-                break;
-              }
-            }
-        }*/
         if(isGreen) {
           if (rect.width > 2 * rect.height){
             writeSwipeEvent(adbStream,
