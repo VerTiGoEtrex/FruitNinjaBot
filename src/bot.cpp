@@ -1,6 +1,7 @@
 #include "bot.hpp"
 
 using cv::Mat;
+using cv::Vec;
 using cv::waitKey;
 using cv::VideoCapture;
 using std::cerr;
@@ -11,6 +12,8 @@ using std::vector;
 using std::string;
 using std::thread;
 using std::for_each;
+
+typedef Vec<int, 3> Vec3i;
 
 static const int CONTOURAREA = 175;
 
@@ -168,11 +171,11 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
 
     cv::Rect rect = boundingRect(contourPoints[i]);
     cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
-    if (iterCount % 5 == 0) {
+    
+    cv::Mat sample = m(rect);
+    if (iterCount % 5 == 0)
       //cout << "Writing images!" << endl;
-      cv::Mat sample = m(rect);
       cv::imwrite(sampleName + std::to_string(uniq++) + sampleExtension, sample);
-    }
 
     auto actualArea = cv::contourArea(contourPoints[i]);
     int A = rect.width;
@@ -190,20 +193,44 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     //Try swiping at them, I guess
     if (iterCount % 10 == 0) {
       if (rect.tl().y > 75 && rect.br().y < 200 && roundness > 0.05) {
-        if (rect.width > 2 * rect.height){
-          writeSwipeEvent(adbStream,
-              rect.tl().x * ((float)1920/640) - 100,
-              rect.tl().y * ((float)1081/320),
-              rect.br().x * ((float)1920/640) + 100,
-              rect.br().y * ((float)1080/320),
-              0.05);
-        }else {
-          writeSwipeEvent(adbStream,
-              rect.tl().x * ((float)1920/640),
-              rect.tl().y * ((float)1080/320) - 100,
-              rect.br().x * ((float)1920/640),
-              rect.br().y * ((float)1080/320) + 100,
-              0.05);
+        //Check for green pixels
+        bool isGreen = false;
+        for(auto it = sample.begin<Vec3i>(); it != sample.end<Vec3i>(); ++it) {
+          if((*it)[0] >= 30 && (*it)[0] <= 90 &&
+             (*it)[1] >= 100 && (*it)[1] <= 180 &&
+             (*it)[2] >= 0 && (*it)[2] <= 15) {
+            isGreen = true;
+            break;
+          }
+        }
+
+        /*for(int x = 0; i < sample.rows; ++x) {
+            for(int y = 0; j < sample.cols; ++y) {
+              Vec3i color = image.at<Vec3i>(Point(x,y));
+              if(color[0] < 0 && color[0] > 0 &&
+                 color[0] < 0 && color[0] > 0 &&
+                 color[0] < 0 && color[0] > 0) {
+                isGreen = true;
+                break;
+              }
+            }
+        }*/
+        if(isGreen) {
+          if (rect.width > 2 * rect.height){
+            writeSwipeEvent(adbStream,
+                rect.tl().x * ((float)1920/640) - 100,
+                rect.tl().y * ((float)1081/320),
+                rect.br().x * ((float)1920/640) + 100,
+                rect.br().y * ((float)1080/320),
+                0.05);
+          }else {
+            writeSwipeEvent(adbStream,
+                rect.tl().x * ((float)1920/640),
+                rect.tl().y * ((float)1080/320) - 100,
+                rect.br().x * ((float)1920/640),
+                rect.br().y * ((float)1080/320) + 100,
+                0.05);
+          }
         }
       }
     }
