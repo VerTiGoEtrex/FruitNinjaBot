@@ -206,7 +206,11 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
         //Check for green pixels
         bool isFruit = false;
         for(auto it = sample.begin<Vec3c>(); it != sample.end<Vec3c>(); ++it) {
-          if(inColorRange(*it, {230, 255}, {215, 230}, {30, 60}, "Found Banana!") ||  //Banana (Yellow)
+          if(inColorRange(*it, {250, 255}, {250, 255}, {250, 255}, "Found Bomb!") ||  //Bomb (White)
+             inColorRange(*it, {15, 40}, {25, 50}, {30, 60}, "Found Bomb!")) {  //Bomb (Black)
+            break;
+          }
+          else if(inColorRange(*it, {230, 255}, {215, 230}, {30, 60}, "Found Banana!") ||  //Banana (Yellow)
              inColorRange(*it, {120, 150}, {65, 105}, {20, 55}, "Found Coconut!")  ||  //Coconut (Brown)
              inColorRange(*it, {30, 90}, {100, 180}, {0, 15}, "Found Green Apple!") ||  //Green Apple (Green)
              inColorRange(*it, {245, 255}, {180, 215}, {0, 50}, "Found Lemon!")  ||  //Lemon (Yellow)
@@ -220,9 +224,7 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
             isFruit = true;
             break;
           }
-          /*else if(inColorRange(*it, {, }, {, }, {, }, "Found Bomb!") ||  //Purple Bomb (Purple)
-                  inColorRange(*it, {, }, {, }, {, }, "Found Bomb!"))    //Red Bomb
-            break;*/
+          
         }
 
         if(isFruit) {
