@@ -22,6 +22,15 @@ void exitError(const char* err) {
   exit(EXIT_FAILURE);
 }
 
+bool inColorRange(const Vec3c& pixel, const vector<unsigned char>& red, const vector<unsigned char>& green, const vector<unsigned char>& blue, const string& msg) {
+  bool inRange = pixel[2] >= red[0] && pixel[2] <= red[1] &&
+                 pixel[1] >= green[0] && pixel[1] <= green[1] &&
+                 pixel[0] >= blue[0] && pixel[0] <= blue[1];
+  if(inRange)
+    cout << msg << endl;
+  return inRange;
+}
+
 int num = 0;
 
 void writeSwipeEvent(FILE* monkeyStream, int x1, int y1, int x2, int y2, float sec) {
@@ -115,15 +124,6 @@ void bootSubprocess(int &pipeFromProc, int &pipeToProc, int childRedirectOut, in
   }
 }
 
-bool inColorRange(const Vec3c& pixel, const vector<int>& red, const vector<int>& blue, const vector<int>& green, const string& msg)
-{
-  bool inRange = pixel[2] >= red[0] && pixel[2] <= red[1] &&
-                 pixel[1] >= green[0] && pixel[1] <= green[1] &&
-                 pixel[0] >= blue[0] && pixel[0] <= blue[1];
-  if(inRange)
-    cout << msg << endl;
-  return inRange;
-}
 
 std::string sampleName = "samples/sample";
 std::string sampleExtension = ".jpg";
@@ -166,7 +166,7 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     cv::Mat maskCopy;
     cv::merge({mask, mask, mask}, maskCopy);
     m.copyTo(fore, maskCopy);
-    imshow("BGMOG", fore);
+    //imshow("BGMOG", fore);
   }
 
   // Find objects
@@ -196,7 +196,7 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     double error = std::fabs(actualArea - estimatedArea);
     double roundness = std::max(0.0, 1 - error/estimatedArea) * std::min(A, B) / std::max(A, B);
     if (roundness > 0.17){
-      cout << roundness << "\n";
+      //cout << roundness << "\n";
       cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
     }
 
@@ -205,14 +205,21 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
       if (rect.tl().y > 75 && rect.br().y < 200 && roundness > 0.05) {
         //Check for green pixels
         bool isFruit = false;
+        //cout << std::distance(sample.begin<Vec3c>(), sample.end<Vec3c>()) << endl;
         for(auto it = sample.begin<Vec3c>(); it != sample.end<Vec3c>(); ++it) {
-          if(inColorRange(*it, {250, 255}, {250, 255}, {250, 255}, "Found Bomb!") ||  //Bomb (White)
-             inColorRange(*it, {15, 40}, {25, 50}, {30, 60}, "Found Bomb!")) {  //Bomb (Black)
+          if(inColorRange(*it, {250, 255}, {250, 255}, {250, 255}, "Found Bomb!") || //Bomb (Black)
+              inColorRange(*it, {5, 90}, {5, 90}, {5, 90}, "Found Bomb!")) { //Bomb (White)
             break;
-          }
-          else if(inColorRange(*it, {230, 255}, {215, 230}, {30, 60}, "Found Banana!") ||  //Banana (Yellow)
+          } else if (inColorRange(*it, {120, 150}, {65, 105}, {20, 55}, "")) {//Coconut (Brown))
+            if (inColorRange(*it, {50, 255}, {0, 30}, {0, 20}, "Found Bomb(red)!")){
+              break;
+            } else {
+              cout << "Actually a coconut!" << endl;
+              isFruit = true;
+            }
+          } else if(inColorRange(*it, {230, 255}, {215, 230}, {30, 60}, "Found Banana!") ||  //Banana (Yellow)
              inColorRange(*it, {120, 150}, {65, 105}, {20, 55}, "Found Coconut!")  ||  //Coconut (Brown)
-             inColorRange(*it, {30, 90}, {100, 180}, {0, 15}, "Found Green Apple!") ||  //Green Apple (Green)
+             inColorRange(*it, {30, 90}, {100, 180}, {0, 40}, "Found Green Apple!") ||  //Green Apple (Green)
              inColorRange(*it, {245, 255}, {180, 215}, {0, 50}, "Found Lemon!")  ||  //Lemon (Yellow)
              inColorRange(*it, {250, 255}, {100, 180}, {0, 10}, "Found Orange!")  ||  //Orange (Orange)
              inColorRange(*it, {200, 250}, {45, 130}, {20, 80}, "Found Peach!")  ||  //Peach (Red Orange)
@@ -221,10 +228,10 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
              inColorRange(*it, {100, 200}, {0, 40}, {0, 20}, "Found Red Apple!")  ||  //Red Apple (Red)
              inColorRange(*it, {100, 255}, {0, 20}, {0, 10}, "Found Strawberry!")  ||  //Strawberry (Red)
              inColorRange(*it, {40, 150}, {80, 190}, {0, 40}, "Found Watermelon!")) {   //Watermelon (Light Green)
-            isFruit = true;
-            break;
-          }
-          
+               isFruit = true;
+               break;
+             }
+             //cout << *it << endl;
         }
 
         if(isFruit) {
@@ -243,6 +250,9 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
                 rect.br().y * ((float)1080/320) + 100,
                 0.05);
           }
+        } else {
+          auto sz = sample.size();
+          cout << sample(cv::Rect(sz.width/2, sz.height/2, 1, 1))<< endl;
         }
       }
     }
