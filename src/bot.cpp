@@ -115,6 +115,16 @@ void bootSubprocess(int &pipeFromProc, int &pipeToProc, int childRedirectOut, in
   }
 }
 
+bool inColorRange(const Vec3c& pixel, const vector<int>& red, const vector<int>& blue, const vector<int>& green, const string& msg)
+{
+  bool inRange = pixel[2] >= red[0] && pixel[2] <= red[1] &&
+                 pixel[1] >= green[0] && pixel[1] <= green[1] &&
+                 pixel[0] >= blue[0] && pixel[0] <= blue[1];
+  if(inRange)
+    cout << msg << endl;
+  return inRange;
+}
+
 std::string sampleName = "samples/sample";
 std::string sampleExtension = ".jpg";
 unsigned int uniq = 0;
@@ -194,17 +204,28 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     if (iterCount % 10 == 0) {
       if (rect.tl().y > 75 && rect.br().y < 200 && roundness > 0.05) {
         //Check for green pixels
-        bool isGreen = false;
+        bool isFruit = false;
         for(auto it = sample.begin<Vec3c>(); it != sample.end<Vec3c>(); ++it) {
-          if((*it)[2] >= 30 && (*it)[2] <= 90 &&
-             (*it)[1] >= 100 && (*it)[1] <= 180 &&
-             (*it)[0] >= 0 && (*it)[0] <= 15) {
-            isGreen = true;
+          if(inColorRange(*it, {230, 255}, {215, 230}, {30, 60}, "Found Banana!") ||  //Banana (Yellow)
+             inColorRange(*it, {120, 150}, {65, 105}, {20, 55}, "Found Coconut!")  ||  //Coconut (Brown)
+             inColorRange(*it, {30, 90}, {100, 180}, {0, 15}, "Found Green Apple!") ||  //Green Apple (Green)
+             inColorRange(*it, {245, 255}, {180, 215}, {0, 50}, "Found Lemon!")  ||  //Lemon (Yellow)
+             inColorRange(*it, {250, 255}, {100, 180}, {0, 10}, "Found Orange!")  ||  //Orange (Orange)
+             inColorRange(*it, {200, 250}, {45, 130}, {20, 80}, "Found Peach!")  ||  //Peach (Red Orange)
+             inColorRange(*it, {190, 250}, {180, 240}, {10, 105}, "Found Pear!")  ||  //Pear (Yellow Green)
+             inColorRange(*it, {160, 190}, {90, 130}, {0, 60}, "Found Pineapple!")  ||  //Pineapple (Brown)
+             inColorRange(*it, {100, 200}, {0, 40}, {0, 20}, "Found Red Apple!")  ||  //Red Apple (Red)
+             inColorRange(*it, {100, 255}, {0, 20}, {0, 10}, "Found Strawberry!")  ||  //Strawberry (Red)
+             inColorRange(*it, {40, 150}, {80, 190}, {0, 40}, "Found Watermelon!")) {   //Watermelon (Light Green)
+            isFruit = true;
             break;
           }
+          /*else if(inColorRange(*it, {, }, {, }, {, }, "Found Bomb!") ||  //Purple Bomb (Purple)
+                  inColorRange(*it, {, }, {, }, {, }, "Found Bomb!"))    //Red Bomb
+            break;*/
         }
 
-        if(isGreen) {
+        if(isFruit) {
           if (rect.width > 2 * rect.height){
             writeSwipeEvent(adbStream,
                 rect.tl().x * ((float)1920/640) - 100,
