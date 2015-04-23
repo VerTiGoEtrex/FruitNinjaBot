@@ -166,7 +166,7 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     cv::Mat maskCopy;
     cv::merge({mask, mask, mask}, maskCopy);
     m.copyTo(fore, maskCopy);
-    //imshow("BGMOG", fore);
+    imshow("BGMOG", fore);
   }
 
   // Find objects
@@ -183,9 +183,11 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     cv::rectangle(processedFore, rect.tl(), rect.br(), cv::Scalar(0, 255, 255), 1);
 
     cv::Mat sample = fore(rect);
-    if (iterCount % 5 == 0)
-      //cout << "Writing images!" << endl;
-      cv::imwrite(sampleName + std::to_string(uniq++) + sampleExtension, sample);
+    /*
+     *if (iterCount % 5 == 0)
+     *  //cout << "Writing images!" << endl;
+     *  cv::imwrite(sampleName + std::to_string(uniq++) + sampleExtension, sample);
+     */
 
     auto actualArea = cv::contourArea(contourPoints[i]);
     int A = rect.width;
@@ -202,37 +204,18 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
 
     //Try swiping at them, I guess
     if (iterCount % 10 == 0) {
-      if (rect.tl().y > 75 && rect.br().y < 200 && roundness > 0.05) {
+      if (rect.tl().y > 75 && rect.tl().y < 150 && roundness > 0.05) {
         //Check for green pixels
-        bool isFruit = false;
+        bool isFruit = true;
         //cout << std::distance(sample.begin<Vec3c>(), sample.end<Vec3c>()) << endl;
-        for(auto it = sample.begin<Vec3c>(); it != sample.end<Vec3c>(); ++it) {
-          if(inColorRange(*it, {250, 255}, {250, 255}, {250, 255}, "Found Bomb!") || //Bomb (Black)
-              inColorRange(*it, {5, 90}, {5, 90}, {5, 90}, "Found Bomb!")) { //Bomb (White)
-            break;
-          } else if (inColorRange(*it, {120, 150}, {65, 105}, {20, 55}, "")) {//Coconut (Brown))
-            if (inColorRange(*it, {50, 255}, {0, 30}, {0, 20}, "Found Bomb(red)!")){
-              break;
-            } else {
-              cout << "Actually a coconut!" << endl;
-              isFruit = true;
-            }
-          } else if(inColorRange(*it, {230, 255}, {215, 230}, {30, 60}, "Found Banana!") ||  //Banana (Yellow)
-             inColorRange(*it, {120, 150}, {65, 105}, {20, 55}, "Found Coconut!")  ||  //Coconut (Brown)
-             inColorRange(*it, {30, 90}, {100, 180}, {0, 40}, "Found Green Apple!") ||  //Green Apple (Green)
-             inColorRange(*it, {245, 255}, {180, 215}, {0, 50}, "Found Lemon!")  ||  //Lemon (Yellow)
-             inColorRange(*it, {250, 255}, {100, 180}, {0, 10}, "Found Orange!")  ||  //Orange (Orange)
-             inColorRange(*it, {200, 250}, {45, 130}, {20, 80}, "Found Peach!")  ||  //Peach (Red Orange)
-             inColorRange(*it, {190, 250}, {180, 240}, {10, 105}, "Found Pear!")  ||  //Pear (Yellow Green)
-             inColorRange(*it, {160, 190}, {90, 130}, {0, 60}, "Found Pineapple!")  ||  //Pineapple (Brown)
-             inColorRange(*it, {100, 200}, {0, 40}, {0, 20}, "Found Red Apple!")  ||  //Red Apple (Red)
-             inColorRange(*it, {100, 255}, {0, 20}, {0, 10}, "Found Strawberry!")  ||  //Strawberry (Red)
-             inColorRange(*it, {40, 150}, {80, 190}, {0, 40}, "Found Watermelon!")) {   //Watermelon (Light Green)
-               isFruit = true;
-               break;
-             }
-             //cout << *it << endl;
-        }
+        /*
+         *for(auto it = sample.begin<Vec3c>(); it != sample.end<Vec3c>(); ++it) {
+         *  if(inColorRange(*it, {128, 255}, {0, 40}, {128, 255}, "Found Bomb!") || //Bomb (Purple)
+         *      inColorRange(*it, {240, 255}, {240, 255}, {240, 255}, "Found Bomb!")) { //Bomb (White)
+         *        isFruit = false;
+         *      }
+         *}
+         */
 
         if(isFruit) {
           if (rect.width > 2 * rect.height){
