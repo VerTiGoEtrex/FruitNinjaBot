@@ -158,6 +158,8 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
       dst.data, dst.linesize);
   sws_freeContext(convert_ctx);
 
+  imshow("RAW", m);
+
   bgs(m, mask);
   if (mask.rows){
     cv::Mat maskCmp(h, w, CV_8UC1, 128);
@@ -166,7 +168,7 @@ void callback(AVFrame *frame, AVPacket *pkt, void *user) {
     cv::Mat maskCopy;
     cv::merge({mask, mask, mask}, maskCopy);
     m.copyTo(fore, maskCopy);
-    imshow("BGMOG", fore);
+    //imshow("BGMOG", fore);
   }
 
   // Find objects
